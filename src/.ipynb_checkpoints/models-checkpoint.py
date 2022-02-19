@@ -5,12 +5,12 @@ import torch.nn.functional as F
 import random
 from copy import deepcopy
 
-from src.config import N, gamma
+from src.config import gamma, lr
 from src.utils import Logger, Memory
 
 
 class Policy(nn.Module):
-    def __init__(self):
+    def __init__(self, N):
         super().__init__()
         self.fc1 = nn.Linear(N*2, 256)
         self.fc2 = nn.Linear(256, N)
@@ -21,18 +21,19 @@ class Policy(nn.Module):
 
 
 class DQN:
-    def __init__(self, env, use_her):
+    def __init__(self, env, N, use_her):
         self.env = env
+        self.N = N
         
         # HER parameters
         self.use_her = use_her
         #self.K = 4 
         
-        self.model = Policy()
+        self.model = Policy(self.N)
         self.target_model = deepcopy(self.model)
         self.target_model.eval()
         
-        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=0.001)
+        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=lr)
         self.batch_size = 64
         self.e = 0.9
         self.e_min = 0.1
@@ -50,16 +51,15 @@ class DQN:
     def episode(self):
         state, done = self.env.reset()
         
-        min_dist = N
-        
-        for t in range(N):
+        min_dist = self.N
+        for t in range(self.N):
             self.steps += 1
             self.e = self.e_min + (self.e-self.e_min) * self.e_decay
             
             Q = self.model(state)
             
             if random.random() <= self.e:
-                action = torch.randint(N, (1, ))[0]
+                action = torch.randint(self.N, (1, ))[0]
             else:
                 action = torch.argmax(Q)
             new_state, reward, done, dist = self.env.step(state, action.item())
@@ -67,7 +67,7 @@ class DQN:
             if dist < min_dist:
                 min_dist = dist
             
-            if (t+1) == N:
+            if (t+1) == self.N:
                 done = True
             
             # > standard experience replay
@@ -75,7 +75,6 @@ class DQN:
             
             # > HER
             if self.use_her:
-                #self.her(t+1)
                 self.her(state, action, reward, new_state, done)
             
             state = new_state
@@ -85,7 +84,7 @@ class DQN:
                 self.target_model.load_state_dict(self.model.state_dict())
                 self.step_counter = 0
             
-            if (t+1) == N:
+            if (t+1) == self.N:
                 break
         
         loss = self.update_model()

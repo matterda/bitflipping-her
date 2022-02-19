@@ -1,8 +1,8 @@
-N = 20
-epochs = 5000
+epochs = 10000
 gamma = 0.98
-buffer_size = 100000
+lr = 0.001
 
-K = 4 # ratio of HER data to data coming from normal experience replay
+buffer_size = 1000000
+K = 4
 
 update_target_step = 1000
